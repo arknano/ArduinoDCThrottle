@@ -1,12 +1,13 @@
 void initThrottle()
 {
+  TCCR2B = TCCR2B & B11111000 | B00000110;  // for PWM frequency of 122.55 Hz
   Serial.begin(9600);
   trackPower = false;
   setupPins();
   setupLEDs();
   startupAnim();
-  EEPROM.get(0, reverserState);
-  digitalWrite(reverserLEDPin, reverserState);
+  EEPROM.get(0, reverserDesiredState);
+  digitalWrite(reverserLEDPin, reverserDesiredState);
 }
 
 void setupPins()
@@ -15,6 +16,8 @@ void setupPins()
   pinMode(trackPowerSwitchPin, INPUT_PULLUP);
   pinMode(reverserLEDPin, OUTPUT);
   pinMode(throttlePin, INPUT);
+  pinMode(motorDirectionPin, OUTPUT);
+  pinMode(motorSpeedPin, OUTPUT);
 }
 
 void setupLEDs()

@@ -1,3 +1,5 @@
+
+
 //REVERSER VARS
 int reverserButtonState;           // the current reading from the input pin
 int lastReverserButtonState = LOW; // the previous reading from the input pin
@@ -9,30 +11,42 @@ unsigned long debounceDelay = 50;   // the debounce time; increase if the output
 
 //THROTTLE VARS
 int sensorval;
-int Speed;
+float ActualSpeedF;
+int ActualSpeed;
+int DesiredSpeed;
+int speedChange = 30;
 
 void runThrottle()
 {
   trackPower = digitalRead(trackPowerSwitchPin);
   ReverserButton();
+  powerTrack();
+}
 
-  sensorval = analogRead(throttlePin);
-
-  Speed = map(sensorval, 0, 1023, 255, 0);
-
-  if (reverserState == true)
+void powerTrack()
+{
+  if (ActualSpeed <= 10)
   {
-    //Speed = -Speed;
+    reverserActualState = reverserDesiredState;
   }
-
   if (trackPower)
   {
+    sensorval = analogRead(throttlePin);
+    DesiredSpeed = map(sensorval, 0, 1023, 255, 0);
     digitalWrite(trackPowerLEDPin, HIGH);
-    Serial.println(Speed);
+    digitalWrite(motorDirectionPin, reverserActualState ? LOW : HIGH);
+    if (reverserActualState != reverserDesiredState)
+    {
+      DesiredSpeed = 10;
+    }
+    getActualSpeed();
     updateThrottleDisplay();
+
+    analogWrite(motorSpeedPin, ActualSpeed);
   }
   else
   {
+    analogWrite(motorSpeedPin, 0);
     digitalWrite(trackPowerLEDPin, LOW);
     resetThrottleLEDs();
   }
@@ -40,24 +54,24 @@ void runThrottle()
 
 void updateThrottleDisplay()
 {
-  int *ledArray = reverserState ? reverseLEDPins : forwardLEDPins;
-  if (Speed > 200)
+  int *ledArray = reverserActualState ? reverseLEDPins : forwardLEDPins;
+  if (ActualSpeed > 200)
   {
     setLEDThrottleState(ledArray, 5);
   }
-  else if (Speed > 150)
+  else if (ActualSpeed > 150)
   {
     setLEDThrottleState(ledArray, 4);
   }
-  else if (Speed > 100)
+  else if (ActualSpeed > 100)
   {
     setLEDThrottleState(ledArray, 3);
   }
-  else if (Speed > 50)
+  else if (ActualSpeed > 75)
   {
     setLEDThrottleState(ledArray, 2);
   }
-  else if (Speed > 10)
+  else if (ActualSpeed > 50)
   {
     setLEDThrottleState(ledArray, 1);
   }
@@ -117,16 +131,34 @@ void ReverserButton()
       // only toggle the LED if the new button state is HIGH
       if (reverserButtonState == HIGH)
       {
-        reverserState = !reverserState;
+        reverserDesiredState = !reverserDesiredState;
         resetThrottleLEDs();
+        Serial.println("Reverser toggled");
       }
     }
   }
 
   // set the LED:
-  digitalWrite(reverserLEDPin, reverserState);
-  EEPROM.put(0, reverserState);
+  digitalWrite(reverserLEDPin, reverserDesiredState);
+  EEPROM.put(0, reverserDesiredState);
 
   // save the reading. Next time through the loop, it'll be the lastButtonState:
   lastReverserButtonState = reading;
+}
+
+void getActualSpeed()
+{
+  if (DesiredSpeed < ActualSpeedF)
+  {
+    ActualSpeedF -= deltaTime * speedChange;
+  }
+  else if (DesiredSpeed > ActualSpeedF)
+  {
+    ActualSpeedF += deltaTime * speedChange;
+  }
+  else
+  {
+    ActualSpeedF = DesiredSpeed;
+  }
+  ActualSpeed = (int)ActualSpeedF;
 }
